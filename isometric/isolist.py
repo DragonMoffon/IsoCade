@@ -1,31 +1,35 @@
 import math
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Tuple
 
 import arcade
 if TYPE_CHECKING:
     from arcade import Texture, TextureAtlas
 
 
-def to_isometric_square(tile_x: int, tile_y: int, map_size: tuple[int, int], tile_size: tuple[int, int]):
+def to_isometric_square(tile_x: int, tile_y: int, scale: float, map_size: Tuple[int, int], tile_size: Tuple[int, int]):
     """
     Helper function which takes a x and y tile co-ordinate, like that you would get from Tiled, and converts it to a
     screen space x and y co-ordinate.
     :param tile_x: the tile x coord
     :param tile_y: the tile y coord
+    :param scale: the scale of the tiles.
     :param map_size: The map size in tile count.
-    :param tile_size: The scaled size of the tiles.
+    :param tile_size: The size of the tiles.
     :return: center_x and center_y position.
     """
+
+    tile_width = tile_size[0] * scale
+    tile_height = tile_size[1] * scale
 
     # Optional Step, makes the center of the map lie at 0, 0. If not used all of the center_y's will be negative.
     t_x = tile_x - map_size[0]/2
     t_y = tile_y - map_size[1]/2
 
-    # because the sprites are already cast to the ~30 degrees for the isometric the only needed rotations is the
-    # 45 degrees. However since cos and sin 45 are both 0.707 they are removed from the system as it simply makes
+    # because the sprites are already cast to the ~30 degrees for the isometric the only needed rotation is the
+    # 45 degrees. However since cos and sin 45 are both 0.707 they are removed from the equation as it simply makes
     # the final center offset smaller.
-    iso_x = (t_x - t_y) * (tile_size[0]/2)
-    iso_y = -(t_x + t_y) * (tile_size[1]/2)
+    iso_x = (t_x - t_y) * (tile_width/2)
+    iso_y = -(t_x + t_y) * (tile_height/2)
 
     # The iso_y is negative, because it means that the lower values start at the top rather than the bottom.
     # this fixes an issue that tiled causes as the top most tile having the value (0, 0) which would make the whole map
@@ -36,24 +40,28 @@ def to_isometric_square(tile_x: int, tile_y: int, map_size: tuple[int, int], til
     return iso_x, iso_y
 
 
-def from_isometric_square(center_x: int, center_y: int, map_size: tuple[int, int], tile_size: tuple[int, int]):
+def from_isometric_square(center_x: int, center_y: int, scale: float,
+                          map_size: Tuple[int, int], tile_size: Tuple[int, int]):
     """
     Helper function which takes a screen space center x and center y tile co-ordinates and converts them to tile space.
     :param center_x: The world space x coord.
     :param center_y: The world space y coord.
+    :param scale: the scale of the tiles.
     :param map_size: The map size in tile count.
-    :param tile_size: The scaled size of the tiles.
+    :param tile_size: The size of the tiles.
     :return: tile_x and tile_y position.
     """
+    tile_width = tile_size[0] * scale
+    tile_height = tile_size[1] * scale
 
     # It took a lot of bad algebra to get here, and to be honest I don't know why this works. Just trust me it works.
     # I could maybe find the maths somewhere in my notes. The easier way to have calculated it would have been to find
     # the inverse matrix, which is essentially what I found in the end. I instead (not knowing matrix mathematics) did
     # the simultaneous equation to find it.
-    tiled_x = center_x/tile_size[0] - center_y/tile_size[1] + 1
-    tiled_y = -center_x/tile_size[0] - center_y/tile_size[1] + 1
+    tiled_x = center_x/tile_width - center_y/tile_height + 1
+    tiled_y = -center_x/tile_width - center_y/tile_height + 1
 
-    # If you did the original shifting, remove it.
+    # If you did the original shifting, un-shift the result.
     tiled_x += map_size[0]/2
     tiled_y += map_size[1]/2
 
@@ -77,5 +85,5 @@ class IsoList(arcade.SpriteList):
 
     def draw(self, *, filter=None, pixelated=None, blend_function=None):
         if self._sprite_pos_changed:
-            self.sort(key=lambda sprite: sprite.x + sprite.y, reverse=True)
+            self.sort(key=lambda sprite: sprite.center_y, reverse=True)
         super().draw(filter=filter, pixelated=pixelated, blend_function=blend_function)
